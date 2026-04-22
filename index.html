@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>spacedolphin's Unreality3D Experience</title>
+    <title>Spacedolphin's Unreality3d Playground</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, shrink-to-fit=no">
     <link rel="icon" type="image/x-icon" href="https://unreality3d.com/favicon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="https://unreality3d.com/favicon-32x32.png">
@@ -98,7 +98,7 @@
         }
         .loading-subtitle {
             font-size: 0.78rem; color: rgba(255,255,255,0.45); text-align: center;
-            letter-spacing: 0.1em; text-transform: uppercase; margin-top: -1.25rem;
+            letter-spacing: 0.1em; text-transform: uppercase; margin-top: 0;
         }
 
         /* Progress bar */
@@ -154,8 +154,14 @@
             z-index: 8000; max-width: 600px; width: 90%;
         }
 
-        /* ── VR Button (unchanged) ───────────────────── */
-        #webxr-button-container { position: fixed; bottom: 20px; right: 20px; z-index: 2000; display: none; }
+        /* ── VR Button ───────────────────────────────── */
+        #webxr-button-container {
+            position: fixed; bottom: 20px; right: 20px; z-index: 2000; display: none;
+            opacity: 1; transition: opacity 0.6s ease;
+        }
+        #webxr-button-container.vr-faded { opacity: 0.15; }
+        #webxr-button-container.vr-faded:hover,
+        #webxr-button-container.vr-faded:active { opacity: 1; }
         #enter-vr-button {
             background: linear-gradient(135deg, #6366f1, #8b5cf6);
             border: none; border-radius: 12px; color: white;
@@ -197,8 +203,8 @@
                 </div>
             </div>
             <div>
-                <div class="loading-title">spacedolphin's Unreality3D Experience</div>
-                <div class="loading-subtitle">Unreality3D Experience</div>
+                <div class="loading-title">Spacedolphin's Unreality3d Playground</div>
+                <div class="loading-subtitle">powered by Unreality3D</div>
             </div>
             <div class="loading-track">
                 <div id="unity-progress-bar-full"></div>
@@ -248,16 +254,8 @@
                     return { type: 'professional', isProduction: true, projectId: 'unreality3d', creatorUsername, projectName, urlFormat: 'path_based' };
                 }
             }
-            if (hostname.endsWith('.unreality3d.com') && hostname !== 'unreality3d.com') {
-                const creatorUsername = hostname.replace('.unreality3d.com', '');
-                const projectName = pathname.split('/').filter(p => p.length > 0)[0] || 'main';
-                gtag('event', 'creator_project_visit', { creator_name: creatorUsername, project_name: projectName, content_type: 'unity_webgl', url_format: 'subdomain' });
-                return { type: 'professional', isProduction: true, projectId: 'unreality3d', creatorUsername, projectName, urlFormat: 'subdomain' };
-            }
             if (hostname.includes('unreality3d.web.app') || hostname.includes('unreality3d.firebaseapp.com'))
                 return { type: 'firebase', isProduction: true, projectId: 'unreality3d' };
-            if (hostname.includes('unreality3d2025.web.app') || hostname.includes('unreality3d2025.firebaseapp.com'))
-                return { type: 'firebase', isProduction: false, projectId: 'unreality3d2025' };
             if (hostname.includes('github.io'))
                 return { type: 'github-pages', isProduction: true, projectId: 'unreality3d' };
             return { type: 'creator', isProduction: true, projectId: 'unreality3d' };
@@ -313,12 +311,26 @@
 
         window.UnityReportDeploymentMetrics = function(deploymentType, loadTime) { };
 
+        // ── Mobile / iOS Detection ────────────────────
+        var _isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        var _isIOSDevice = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
         // ── WebXR / VR ────────────────────────────────
         let xrSession = null, isVRSupported = false;
+        let vrFadeTimer = null;
 
         async function checkVRSupport() {
             const vrButton = document.getElementById('enter-vr-button');
             const vrContainer = document.getElementById('webxr-button-container');
+
+            // iOS Safari on iPhone/iPad does not support immersive-vr sessions.
+            // The WebXR polyfill redirects to a dead Google Cardboard page.
+            // Suppress the button entirely on iOS phones and tablets.
+            if (_isIOSDevice) {
+                gtag('event', 'webxr_check', { supported: false, reason: 'ios_not_supported', creator_name: environment.creatorUsername || 'platform', project_name: environment.projectName || 'main' });
+                return;
+            }
+
             if (!navigator.xr) {
                 gtag('event', 'webxr_check', { supported: false, reason: 'no_navigator_xr', creator_name: environment.creatorUsername || 'platform', project_name: environment.projectName || 'main' });
                 return;
@@ -326,10 +338,7 @@
             try {
                 isVRSupported = await navigator.xr.isSessionSupported('immersive-vr');
                 if (isVRSupported) {
-                    vrContainer.style.display = 'block';
-                    vrButton.disabled = false;
-                    vrButton.classList.add('vr-available');
-                    vrButton.querySelector('span').textContent = 'Enter VR';
+                    showVRButton();
                     gtag('event', 'webxr_check', { supported: true, session_type: 'immersive-vr', creator_name: environment.creatorUsername || 'platform', project_name: environment.projectName || 'main' });
                 } else {
                     gtag('event', 'webxr_check', { supported: false, reason: 'device_not_supported', creator_name: environment.creatorUsername || 'platform', project_name: environment.projectName || 'main' });
@@ -338,6 +347,25 @@
                 console.error('🥽 Error checking VR support:', error);
                 gtag('event', 'webxr_error', { error_type: 'support_check_failed', error_message: error.message, creator_name: environment.creatorUsername || 'platform', project_name: environment.projectName || 'main' });
             }
+        }
+
+        function showVRButton() {
+            const vrContainer = document.getElementById('webxr-button-container');
+            const vrButton = document.getElementById('enter-vr-button');
+            vrContainer.style.display = 'block';
+            vrContainer.classList.remove('vr-faded');
+            vrButton.disabled = false;
+            vrButton.classList.add('vr-available');
+            vrButton.querySelector('span').textContent = 'Enter VR';
+
+            // Auto-fade after 8 seconds so it stops blocking the view.
+            // Hovering or tapping restores full opacity (handled by CSS).
+            clearTimeout(vrFadeTimer);
+            vrFadeTimer = setTimeout(function() {
+                if (!xrSession) {
+                    vrContainer.classList.add('vr-faded');
+                }
+            }, 8000);
         }
 
         function showVRStatus(msg, duration = 5000) {
@@ -372,17 +400,22 @@
         }
 
         document.addEventListener('onVRSupportedCheck', function(e) {
+            // Event fired by De-Panther WebXR Export from inside Unity.
+            // Suppress on iOS — same reason as checkVRSupport.
+            if (_isIOSDevice) return;
+
             if (e.detail && e.detail.supported) {
                 isVRSupported = true;
-                document.getElementById('webxr-button-container').style.display = 'block';
-                const btn = document.getElementById('enter-vr-button');
-                btn.disabled = false; btn.classList.add('vr-available');
+                showVRButton();
             }
         });
 
         document.addEventListener('onXRSessionStarted', function() {
             xrSession = true; document.body.classList.add('xr-session-active');
+            const vrContainer = document.getElementById('webxr-button-container');
             const btn = document.getElementById('enter-vr-button');
+            vrContainer.classList.remove('vr-faded');
+            clearTimeout(vrFadeTimer);
             btn.querySelector('span').textContent = 'Exit VR'; btn.classList.remove('vr-available'); btn.disabled = false;
             gtag('event', 'webxr_session_start', { creator_name: environment.creatorUsername || 'platform', project_name: environment.projectName || 'main' });
         });
@@ -391,10 +424,22 @@
             xrSession = null; document.body.classList.remove('xr-session-active');
             const btn = document.getElementById('enter-vr-button');
             btn.querySelector('span').textContent = 'Enter VR'; btn.classList.add('vr-available'); btn.disabled = false;
+            // Restart the fade timer after session ends
+            showVRButton();
             gtag('event', 'webxr_session_end', { creator_name: environment.creatorUsername || 'platform', project_name: environment.projectName || 'main' });
         });
 
         document.getElementById('enter-vr-button').addEventListener('click', toggleVRSession);
+
+        // On touch devices, restore VR button opacity when tapped
+        document.getElementById('webxr-button-container').addEventListener('touchstart', function() {
+            var c = document.getElementById('webxr-button-container');
+            c.classList.remove('vr-faded');
+            clearTimeout(vrFadeTimer);
+            vrFadeTimer = setTimeout(function() {
+                if (!xrSession) c.classList.add('vr-faded');
+            }, 8000);
+        }, { passive: true });
 
         // ── PayPal Integration ────────────────────────
         function checkPayPalBridgeReady() {
@@ -481,14 +526,14 @@
             }
 
             var buildUrl = "Build";
-            var loaderUrl = buildUrl + "/9301a1cdc3691114884488670ea9c58a.loader.js?v=1773986310397";
+            var loaderUrl = buildUrl + "/daac754b5fea15254ec95266c7bd6d2e.loader.js?v=1776830731329";
             var config = {
-                dataUrl: buildUrl + "/7a21be7da4795806430d6bcb7e5b28ab.data?v=1773986310397",
-                frameworkUrl: buildUrl + "/539b79d86caf3526bde860367bd4d641.framework.js?v=1773986310397",
-                codeUrl: buildUrl + "/edd9b9d0a9c81edbb9efa86ed9a23974.wasm?v=1773986310397",
+                dataUrl: buildUrl + "/32b06f5b25bf700f7ebd1d32a1c23ce6.data?v=1776830731329",
+                frameworkUrl: buildUrl + "/ce05e997f7c47e149ade1cf9f8def078.framework.js?v=1776830731329",
+                codeUrl: buildUrl + "/b413d11d6f8cc1fdf574442aa0114904.wasm?v=1776830731329",
                 streamingAssetsUrl: "StreamingAssets",
                 companyName: "spacedolphin",
-                productName: "spacedolphin's Unreality3D Experience",
+                productName: "Spacedolphin's Unreality3d Playground",
                 productVersion: "1.0.0",
                 showBanner: unityShowBanner,
                 cacheControl: function(url) {
@@ -498,7 +543,7 @@
                 }
             };
 
-            if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+            if (_isMobileDevice) {
                 config.devicePixelRatio = 1;
                 unityShowBanner('WebGL builds are not supported on mobile devices.', 'warning');
                 gtag('event', 'mobile_access_attempt', { device_type: 'mobile', creator_name: environment.creatorUsername || 'platform', project_name: environment.projectName || 'main' });
