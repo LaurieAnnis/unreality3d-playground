@@ -1,0 +1,35 @@
+{
+  "id": "https://unreality3d.com/spacedolphin/unreality3d-playground/",
+  "name": "Spacedolphin's Unreality3d Playground",
+  "short_name": "Unreality3d Playground",
+  "description": "Spacedolphin's Unreality3d Playground — an interactive 3D experience powered by Unreality3D",
+  "start_url": "https://unreality3d.com/spacedolphin/unreality3d-playground/",
+  "scope": "https://unreality3d.com/spacedolphin/unreality3d-playground/",
+  "display": "fullscreen",
+  "display_override": [
+    "fullscreen",
+    "standalone",
+    "minimal-ui"
+  ],
+  "orientation": "any",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "https://unreality3d.com/images/unreality3d-logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://unreality3d.com/images/unreality3d-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "categories": [
+    "games",
+    "entertainment"
+  ]
+}

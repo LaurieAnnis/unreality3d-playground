@@ -12,7 +12,14 @@
     <link rel="icon" type="image/png" sizes="192x192" href="https://unreality3d.com/images/unreality3d-logo.png">
     <link rel="icon" type="image/png" sizes="512x512" href="https://unreality3d.com/images/unreality3d-logo.png">
     <meta name="theme-color" content="#0f172a">
-
+ 
+    <!-- PWA: manifest + installable web-app metadata -->
+    <link rel="manifest" href="manifest.webmanifest">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Unreality3d Playground">
+ 
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-N4BFSLTHZF"></script>
     <script>
         window.dataLayer = window.dataLayer || [];
@@ -20,17 +27,17 @@
         gtag('js', new Date());
         gtag('config', 'G-N4BFSLTHZF', { enhanced_measurements: true, file_downloads: true });
     </script>
-
+ 
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
+ 
         html, body {
             width: 100%; height: 100%;
             overflow: hidden; position: fixed;
             background: #0f172a; color: #ffffff;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, Arial, sans-serif;
         }
-
+ 
         /* ── Loading Screen ─────────────────────────────── */
         #loading-screen {
             position: fixed; inset: 0; z-index: 9000;
@@ -62,13 +69,13 @@
             z-index: 0;
         }
         #loading-screen.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
-
+ 
         .loading-content {
             display: flex; flex-direction: column;
             align-items: center; gap: 1.75rem;
             position: relative; z-index: 1; padding: 2rem;
         }
-
+ 
         /* Logo — purple→cyan gradient border matching site hero-logo-container */
         .loading-logo-wrap {
             width: 112px; height: 112px; border-radius: 1.5rem;
@@ -87,7 +94,7 @@
             display: flex; align-items: center; justify-content: center; overflow: hidden;
         }
         .loading-logo-inner img { width: 82%; height: 82%; object-fit: contain; }
-
+ 
         /* Title: white → cyan, matching site hero-title */
         .loading-title {
             font-size: clamp(1.2rem, 3.5vw, 1.75rem);
@@ -100,7 +107,7 @@
             font-size: 0.78rem; color: rgba(255,255,255,0.45); text-align: center;
             letter-spacing: 0.1em; text-transform: uppercase; margin-top: 0;
         }
-
+ 
         /* Progress bar */
         .loading-track {
             width: min(260px, 78vw); height: 3px;
@@ -121,7 +128,7 @@
             font-size: 0.75rem; color: rgba(255,255,255,0.35);
             font-variant-numeric: tabular-nums; letter-spacing: 0.06em;
         }
-
+ 
         /* ── Error Screen ─────────────────────────────── */
         #loading-error {
             display: none; position: fixed; inset: 0; z-index: 9100;
@@ -145,7 +152,7 @@
             box-shadow: 0 4px 20px rgba(124,58,237,0.4);
         }
         .error-reload:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(124,58,237,0.6); }
-
+ 
         /* ── Unity Canvas ────────────────────────────── */
         #unity-container { position: fixed; inset: 0; background: #0f172a; }
         #unity-canvas { display: block; width: 100vw; height: 100vh; background: #0f172a; cursor: default; }
@@ -153,7 +160,7 @@
             position: fixed; top: 0; left: 50%; transform: translateX(-50%);
             z-index: 8000; max-width: 600px; width: 90%;
         }
-
+ 
         /* ── VR Button ───────────────────────────────── */
         #webxr-button-container {
             position: fixed; bottom: 20px; right: 20px; z-index: 2000; display: none;
@@ -186,12 +193,78 @@
         }
         #enter-vr-button.vr-available { animation: vr-pulse 2s ease-in-out infinite; }
         body.xr-session-active #webxr-button-container { display: none !important; }
-
+ 
+        /* PWA: Full Screen button (mobile only) ─────── */
+        #fullscreen-install-button {
+            position: fixed; bottom: 20px; left: 20px; z-index: 2000;
+            display: none;                 /* shown after load on mobile via JS */
+            width: 44px; height: 44px;
+            align-items: center; justify-content: center;
+            background: rgba(255,255,255,0.12);
+            border: 1px solid rgba(255,255,255,0.25);
+            border-radius: 10px;
+            color: rgba(255,255,255,0.85);
+            cursor: pointer; padding: 0;
+            -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+            transition: background 0.3s ease, opacity 0.3s ease;
+        }
+        #fullscreen-install-button:active { background: rgba(255,255,255,0.22); }
+        #fullscreen-install-button svg { width: 22px; height: 22px; }
+        body.xr-session-active #fullscreen-install-button { display: none !important; }
+ 
+        /* PWA: install instructions overlay ─────────── */
+        #install-overlay {
+            display: none; position: fixed; inset: 0; z-index: 9200;
+            align-items: center; justify-content: center; padding: 1.5rem;
+            background: rgba(8,12,24,0.78);
+            -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+        }
+        #install-overlay.visible { display: flex; }
+        .install-card {
+            position: relative; width: min(420px, 92vw);
+            background: linear-gradient(135deg, #1e293b 0%, #1e3a5f 100%);
+            border: 1px solid rgba(255,255,255,0.10);
+            border-radius: 1.25rem; padding: 1.75rem 1.5rem 1.5rem;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+            color: #fff; text-align: left;
+        }
+        .install-card h2 {
+            font-size: 1.15rem; font-weight: 800; letter-spacing: -0.01em; margin-bottom: 0.4rem;
+            background: linear-gradient(135deg, #ffffff 30%, #06b6d4 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        .install-lead {
+            font-size: 0.85rem; color: rgba(255,255,255,0.6); line-height: 1.5; margin-bottom: 1.1rem;
+        }
+        .install-steps { list-style: none; display: flex; flex-direction: column; gap: 0.85rem; }
+        .install-steps li {
+            display: flex; align-items: flex-start; gap: 0.7rem;
+            font-size: 0.9rem; line-height: 1.45; color: rgba(255,255,255,0.9);
+        }
+        .install-step-num {
+            flex: 0 0 auto; width: 24px; height: 24px; border-radius: 50%;
+            background: linear-gradient(135deg, #7c3aed, #06b6d4);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.75rem; font-weight: 700; color: #fff;
+        }
+        .install-inline-icon {
+            display: inline-flex; vertical-align: -3px;
+            width: 18px; height: 18px; margin: 0 2px;
+        }
+        .install-close {
+            position: absolute; top: 0.75rem; right: 0.75rem;
+            width: 32px; height: 32px; border-radius: 50%;
+            background: rgba(255,255,255,0.08); border: none; color: rgba(255,255,255,0.7);
+            font-size: 1.3rem; cursor: pointer; line-height: 1;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .install-close:active { background: rgba(255,255,255,0.18); }
+ 
         ::-webkit-scrollbar { display: none; }
         * { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
-
+ 
 <body>
     <!-- Loading screen -->
     <div id="loading-screen">
@@ -212,7 +285,7 @@
             <div class="loading-pct" id="loading-pct">0%</div>
         </div>
     </div>
-
+ 
     <!-- Error screen -->
     <div id="loading-error">
         <div class="error-icon">⚠️</div>
@@ -220,13 +293,13 @@
         <div class="error-msg" id="error-msg-text">This experience could not be loaded. Please check your connection and try again.</div>
         <button class="error-reload" onclick="window.location.reload()">Try Again</button>
     </div>
-
+ 
     <!-- Unity canvas -->
     <div id="unity-container">
         <canvas id="unity-canvas" tabindex="-1"></canvas>
         <div id="unity-warning"></div>
     </div>
-
+ 
     <!-- VR button -->
     <div id="webxr-button-container">
         <button id="enter-vr-button" disabled>
@@ -238,14 +311,34 @@
         </button>
     </div>
     <div id="vr-status-message"></div>
-
+ 
+    <!-- PWA: Full Screen button (mobile only) -->
+    <button id="fullscreen-install-button" aria-label="Play full screen — how to install">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 4H4v5"></path><path d="M4 4l6 6"></path>
+            <path d="M15 4h5v5"></path><path d="M20 4l-6 6"></path>
+            <path d="M9 20H4v-5"></path><path d="M4 20l6-6"></path>
+            <path d="M15 20h5v-5"></path><path d="M20 20l-6-6"></path>
+        </svg>
+    </button>
+ 
+    <!-- PWA: install instructions overlay -->
+    <div id="install-overlay">
+        <div class="install-card">
+            <button class="install-close" id="install-close-btn" aria-label="Close">&times;</button>
+            <h2>Play full screen</h2>
+            <p class="install-lead">Add this experience to your home screen to launch it full screen, without the browser bar around it.</p>
+            <ol class="install-steps" id="install-steps"></ol>
+        </div>
+    </div>
+ 
     <script>
         // ── Environment Detection ─────────────────────
         // environment-aware
         function detectEnvironment() {
             const hostname = window.location.hostname.toLowerCase();
             const pathname = window.location.pathname;
-
+ 
             if (hostname === 'unreality3d.com') {
                 const parts = pathname.split('/').filter(p => p.length > 0);
                 if (parts.length >= 2) {
@@ -260,11 +353,32 @@
                 return { type: 'github-pages', isProduction: true, projectId: 'unreality3d' };
             return { type: 'creator', isProduction: true, projectId: 'unreality3d' };
         }
-
+ 
         const environment = detectEnvironment();
         environment.creatorPayPalEmail = 'laurie@unreality3d.com';
         let unityInstance = null;
-
+ 
+        // ++ FIX: Suppress the benign cross-origin "Script error." dialog.
+        // Browsers mask any error thrown by a cross-origin script (analytics, the
+        // injected payment SDK, the WebXR runtime, etc.) as the generic string
+        // "Script error." with no source and line 0. Unity's loader reacts to ANY
+        // uncaught error by popping its own alert ("An error occurred running the
+        // Unity content on this page... The error was: Script error."), which looks
+        // fatal even though the experience keeps running. We swallow ONLY that exact
+        // masked signature; every real, same-origin error carries a real message and
+        // line and still reaches Unity's alert untouched.
+        function _isMaskedCrossOriginError(message, source, lineno) {
+            return message === 'Script error.' && !source && (!lineno || lineno === 0);
+        }
+        // Registered before the Unity loader is appended, so this listener runs
+        // first; stopImmediatePropagation then prevents Unity's error listener.
+        window.addEventListener('error', function (e) {
+            if (_isMaskedCrossOriginError(e.message, e.filename, e.lineno)) {
+                e.stopImmediatePropagation();
+                e.preventDefault();
+            }
+        }, true);
+ 
         // ── Loading Screen Helpers ────────────────────
         function setProgress(p) {
             const fill = document.getElementById('unity-progress-bar-full');
@@ -273,12 +387,12 @@
             if (fill) fill.style.width = pct + '%';
             if (label) label.textContent = pct + '%';
         }
-
+ 
         function hideLoadingScreen() {
             const s = document.getElementById('loading-screen');
             if (s) s.classList.add('hidden');
         }
-
+ 
         function showErrorScreen(message) {
             const s = document.getElementById('loading-screen');
             const e = document.getElementById('loading-error');
@@ -288,18 +402,18 @@
             if (e) e.classList.add('visible');
             gtag('event', 'unity_load_failed', { error_message: message, creator_name: environment.creatorUsername || 'platform', project_name: environment.projectName || 'main' });
         }
-
+ 
         // ── Unity Bridge Functions ────────────────────
         window.UnityGetPhotonToken = function(roomName, contentId) {
             const tokenData = JSON.stringify({ appId: "a3df46ef-b10a-4954-8526-7a9fdd553543", region: "auto", maxPlayers: 10, userId: "", username: "" });
             if (unityInstance) unityInstance.SendMessage('U3D_FirebaseIntegration', 'OnPhotonTokenReceived', tokenData);
             else { window._pendingPhotonRoom = roomName; window._pendingPhotonContent = contentId; window._pendingPhotonToken = tokenData; }
         };
-
+ 
         window.UnityCheckContentAccess = function(contentId) {
             if (unityInstance) unityInstance.SendMessage('U3D_FirebaseIntegration', 'OnAccessCheckComplete', 'true');
         };
-
+ 
         window.UnityGetDeploymentInfo = function() {
             const hostname = window.location.hostname;
             const pathname = window.location.pathname;
@@ -308,21 +422,21 @@
             const isProfessionalURL = hostname.includes('unreality3d.com') && creatorUsername !== '';
             return JSON.stringify({ url: window.location.href, hostname, pathname, isProduction: hostname.includes('unreality3d.com'), isProfessionalURL, creatorUsername, projectName, deploymentType: isProfessionalURL ? 'professional' : 'standard' });
         };
-
+ 
         window.UnityReportDeploymentMetrics = function(deploymentType, loadTime) { };
-
+ 
         // ── Mobile / iOS Detection ────────────────────
         var _isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
         var _isIOSDevice = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-
+ 
         // ── WebXR / VR ────────────────────────────────
         let xrSession = null, isVRSupported = false;
         let vrFadeTimer = null;
-
+ 
         async function checkVRSupport() {
             const vrButton = document.getElementById('enter-vr-button');
             const vrContainer = document.getElementById('webxr-button-container');
-
+ 
             // iOS Safari on iPhone/iPad does not support immersive-vr sessions.
             // The WebXR polyfill redirects to a dead Google Cardboard page.
             // Suppress the button entirely on iOS phones and tablets.
@@ -330,7 +444,7 @@
                 gtag('event', 'webxr_check', { supported: false, reason: 'ios_not_supported', creator_name: environment.creatorUsername || 'platform', project_name: environment.projectName || 'main' });
                 return;
             }
-
+ 
             if (!navigator.xr) {
                 gtag('event', 'webxr_check', { supported: false, reason: 'no_navigator_xr', creator_name: environment.creatorUsername || 'platform', project_name: environment.projectName || 'main' });
                 return;
@@ -348,7 +462,7 @@
                 gtag('event', 'webxr_error', { error_type: 'support_check_failed', error_message: error.message, creator_name: environment.creatorUsername || 'platform', project_name: environment.projectName || 'main' });
             }
         }
-
+ 
         function showVRButton() {
             const vrContainer = document.getElementById('webxr-button-container');
             const vrButton = document.getElementById('enter-vr-button');
@@ -357,7 +471,7 @@
             vrButton.disabled = false;
             vrButton.classList.add('vr-available');
             vrButton.querySelector('span').textContent = 'Enter VR';
-
+ 
             // Auto-fade after 8 seconds so it stops blocking the view.
             // Hovering or tapping restores full opacity (handled by CSS).
             clearTimeout(vrFadeTimer);
@@ -367,13 +481,13 @@
                 }
             }, 8000);
         }
-
+ 
         function showVRStatus(msg, duration = 5000) {
             const el = document.getElementById('vr-status-message');
             el.textContent = msg; el.style.display = 'block';
             if (duration > 0) setTimeout(() => { el.style.display = 'none'; }, duration);
         }
-
+ 
         function toggleVRSession() {
             const vrButton = document.getElementById('enter-vr-button');
             if (!unityInstance) { showVRStatus('Unity not loaded yet'); return; }
@@ -398,18 +512,18 @@
                 gtag('event', 'webxr_session_error', { error_type: error.name, error_message: error.message, creator_name: environment.creatorUsername || 'platform', project_name: environment.projectName || 'main' });
             }
         }
-
+ 
         document.addEventListener('onVRSupportedCheck', function(e) {
             // Event fired by De-Panther WebXR Export from inside Unity.
             // Suppress on iOS — same reason as checkVRSupport.
             if (_isIOSDevice) return;
-
+ 
             if (e.detail && e.detail.supported) {
                 isVRSupported = true;
                 showVRButton();
             }
         });
-
+ 
         document.addEventListener('onXRSessionStarted', function() {
             xrSession = true; document.body.classList.add('xr-session-active');
             const vrContainer = document.getElementById('webxr-button-container');
@@ -419,7 +533,7 @@
             btn.querySelector('span').textContent = 'Exit VR'; btn.classList.remove('vr-available'); btn.disabled = false;
             gtag('event', 'webxr_session_start', { creator_name: environment.creatorUsername || 'platform', project_name: environment.projectName || 'main' });
         });
-
+ 
         document.addEventListener('onXRSessionEnded', function() {
             xrSession = null; document.body.classList.remove('xr-session-active');
             const btn = document.getElementById('enter-vr-button');
@@ -428,9 +542,9 @@
             showVRButton();
             gtag('event', 'webxr_session_end', { creator_name: environment.creatorUsername || 'platform', project_name: environment.projectName || 'main' });
         });
-
+ 
         document.getElementById('enter-vr-button').addEventListener('click', toggleVRSession);
-
+ 
         // On touch devices, restore VR button opacity when tapped
         document.getElementById('webxr-button-container').addEventListener('touchstart', function() {
             var c = document.getElementById('webxr-button-container');
@@ -440,7 +554,73 @@
                 if (!xrSession) c.classList.add('vr-faded');
             }, 8000);
         }, { passive: true });
-
+ 
+        // PWA: Full Screen / Add to Home Screen ─────
+        function buildInstallSteps() {
+            const list = document.getElementById('install-steps');
+            if (!list) return;
+ 
+            // Inline icons reused inside the step text.
+            const shareIcon = '<span class="install-inline-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"></path><path d="M8 8l4-4 4 4"></path><path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"></path></svg></span>';
+            const menuIcon = '<span class="install-inline-icon"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="12" cy="19" r="2"></circle></svg></span>';
+ 
+            let steps;
+            if (_isIOSDevice) {
+                // ++ FIX: iOS Share-sheet flow works in any browser (Safari, Chrome,
+                // etc.) because Add to Home Screen is an iOS system action. No
+                // "Safari only" claim. The "View More" hint covers browsers that bury
+                // the action below the fold.
+                steps = [
+                    'Tap the Share button ' + shareIcon + ' — it’s in the toolbar, or on newer iPhones tap the ' + menuIcon + ' menu by the address bar first, then Share.',
+                    'In the list that opens, tap “Add to Home Screen”. If you don’t see it, scroll down or tap “View More”.',
+                    'Tap “Add”, then open it from the new icon to play full screen.'
+                ];
+            } else {
+                // Android Chrome and other Chromium browsers.
+                steps = [
+                    'Tap the ' + menuIcon + ' menu in the corner of the browser.',
+                    'Tap “Install app”, or “Add to Home screen” if that’s what you see.',
+                    'Confirm, then open it from the new icon to play full screen.'
+                ];
+            }
+ 
+            list.innerHTML = steps.map(function(s) {
+                return '<li><span class="install-step-num"></span><span>' + s + '</span></li>';
+            }).join('');
+ 
+            const nums = list.querySelectorAll('.install-step-num');
+            for (var i = 0; i < nums.length; i++) { nums[i].textContent = (i + 1); }
+        }
+ 
+        function openInstallOverlay() {
+            buildInstallSteps();
+            const o = document.getElementById('install-overlay');
+            if (o) o.classList.add('visible');
+            gtag('event', 'pwa_install_instructions_open', { platform: _isIOSDevice ? 'ios' : 'android', creator_name: environment.creatorUsername || 'platform', project_name: environment.projectName || 'main' });
+        }
+ 
+        function closeInstallOverlay() {
+            const o = document.getElementById('install-overlay');
+            if (o) o.classList.remove('visible');
+        }
+ 
+        function showFullscreenButton() {
+            // Mobile only, and not when already running as an installed web app.
+            var isStandalone = (window.matchMedia && (window.matchMedia('(display-mode: fullscreen)').matches || window.matchMedia('(display-mode: standalone)').matches)) || window.navigator.standalone === true;
+            if (!_isMobileDevice || isStandalone) return;
+            var btn = document.getElementById('fullscreen-install-button');
+            if (btn) btn.style.display = 'flex';
+        }
+ 
+        (function wireInstallUI() {
+            var btn = document.getElementById('fullscreen-install-button');
+            var closeBtn = document.getElementById('install-close-btn');
+            var overlay = document.getElementById('install-overlay');
+            if (btn) btn.addEventListener('click', openInstallOverlay);
+            if (closeBtn) closeBtn.addEventListener('click', closeInstallOverlay);
+            if (overlay) overlay.addEventListener('click', function(e) { if (e.target === overlay) closeInstallOverlay(); });
+        })();
+ 
         // ── PayPal Integration ────────────────────────
         function checkPayPalBridgeReady() {
             return new Promise((resolve) => {
@@ -460,7 +640,7 @@
                 }, 500);
             });
         }
-
+ 
         function sendUnityPaymentResult(success, transactionDetails = null) {
             if (!unityInstance) { console.warn('⚠️ Unity instance not available'); return; }
             const name = window.currentPayPalGameObject;
@@ -470,7 +650,7 @@
                 if (success === 'true' && transactionDetails) unityInstance.SendMessage(name, 'OnTransactionDetails', JSON.stringify(transactionDetails));
             } catch (error) { console.error('❌ Failed to send message to Unity:', error); }
         }
-
+ 
         window.StartDirectPayPalDualTransaction = function(paymentData) {
             checkPayPalBridgeReady().then((ready) => {
                 if (ready) {
@@ -487,7 +667,7 @@
                 }
             }).catch((error) => { console.error('❌ Error checking PayPal bridge:', error); sendUnityPaymentResult('false'); });
         };
-
+ 
         window.TestDirectPayPalConnection = function(gameObjectName) {
             checkPayPalBridgeReady().then((ready) => {
                 if (ready) {
@@ -503,14 +683,14 @@
                 if (unityInstance) unityInstance.SendMessage(gameObjectName, 'OnConnectionTestComplete', 'false');
             });
         };
-
+ 
         // ── Unity Loading ─────────────────────────────
         function loadUnity() {
             gtag('event', 'unity_load_start', { creator_name: environment.creatorUsername || 'platform', project_name: environment.projectName || 'main', content_type: 'unity_webgl' });
-
+ 
             var canvas = document.querySelector("#unity-canvas");
             var warningBanner = document.querySelector("#unity-warning");
-
+ 
             function unityShowBanner(msg, type) {
                 if (type === 'error') gtag('event', 'unity_load_error', { error_message: msg, creator_name: environment.creatorUsername || 'platform', project_name: environment.projectName || 'main' });
                 function updateVis() { warningBanner.style.display = warningBanner.children.length ? 'block' : 'none'; }
@@ -524,13 +704,13 @@
                 }
                 updateVis();
             }
-
+ 
             var buildUrl = "Build";
-            var loaderUrl = buildUrl + "/abfbe3d2b7ab2fbd73923fdc685a5d73.loader.js?v=1779603277348";
+            var loaderUrl = buildUrl + "/991143b1ddf595b115acf1cafaeea9dc.loader.js?v=1780262539824";
             var config = {
-                dataUrl: buildUrl + "/a37abaee8a825ae988685639452dc253.data?v=1779603277348",
-                frameworkUrl: buildUrl + "/5055263cf4efb9fd9934695853e40f23.framework.js?v=1779603277348",
-                codeUrl: buildUrl + "/2692d3a6d4daf1b82abfbd36346ad25c.wasm?v=1779603277348",
+                dataUrl: buildUrl + "/75e305e23853aeb32ab95e246af0d9e2.data?v=1780262539824",
+                frameworkUrl: buildUrl + "/1e25922a9a32d7cdb44d1b88dc290f73.framework.js?v=1780262539824",
+                codeUrl: buildUrl + "/eb905fd0df89091c3dc064db373583a5.wasm?v=1780262539824",
                 streamingAssetsUrl: "StreamingAssets",
                 companyName: "spacedolphin",
                 productName: "Spacedolphin's Unreality3d Playground",
@@ -542,15 +722,12 @@
                     return "no-store";
                 }
             };
-
+ 
+            canvas.style.width = "100vw"; canvas.style.height = "100vh";
             if (_isMobileDevice) {
                 config.devicePixelRatio = 1;
-                unityShowBanner('WebGL builds are not supported on mobile devices.', 'warning');
-                gtag('event', 'mobile_access_attempt', { device_type: 'mobile', creator_name: environment.creatorUsername || 'platform', project_name: environment.projectName || 'main' });
-            } else {
-                canvas.style.width = "100vw"; canvas.style.height = "100vh";
             }
-
+ 
             var script = document.createElement("script");
             script.src = loaderUrl;
             script.onload = () => {
@@ -565,12 +742,25 @@
                     // in-template references; window.unityInstance is the cross-script
                     // handoff point.
                     window.unityInstance = instance;
+ 
+                    // ++ FIX: belt-and-suspenders — if Unity wired its error handler
+                    // via window.onerror rather than an event listener, wrap it so the
+                    // same masked cross-origin "Script error." is filtered. Real errors
+                    // pass straight through to Unity's handler.
+                    var _unityOnError = window.onerror;
+                    window.onerror = function (message, source, lineno, colno, error) {
+                        if (_isMaskedCrossOriginError(message, source, lineno)) return true;
+                        if (typeof _unityOnError === 'function') return _unityOnError.apply(this, arguments);
+                        return false;
+                    };
+ 
                     hideLoadingScreen();
                     if (window._pendingPhotonToken) {
                         unityInstance.SendMessage('U3D_FirebaseIntegration', 'OnPhotonTokenReceived', window._pendingPhotonToken);
                         window._pendingPhotonRoom = null; window._pendingPhotonContent = null; window._pendingPhotonToken = null;
                     }
                     checkVRSupport();
+                    showFullscreenButton();   // PWA: reveal the mobile Full Screen button after load
                     gtag('event', 'unity_load_complete', { creator_name: environment.creatorUsername || 'platform', project_name: environment.projectName || 'main', load_time_ms: Date.now() - performance.timing.navigationStart });
                 }).catch((message) => { showErrorScreen(message); });
             };
@@ -580,7 +770,7 @@
             };
             document.body.appendChild(script);
         }
-
+ 
         ['resize', 'orientationchange'].forEach(evt => {
             window.addEventListener(evt, () => {
                 if (!unityInstance) return;
@@ -588,15 +778,15 @@
                 c.width = window.innerWidth; c.height = window.innerHeight;
             });
         });
-
+ 
         ['touchstart', 'touchend', 'touchmove'].forEach(evt => {
             document.addEventListener(evt, e => { if (e.target.tagName === 'CANVAS') e.preventDefault(); }, { passive: false });
         });
-
+ 
         // Debug helpers
         window.debugPayPalGameObject = function() { const n = window.currentPayPalGameObject; if (!n) console.warn('⚠️ No GameObject name stored'); return n; };
         window.debugWebXRStatus = function() { return { xrAvailable: !!navigator.xr, vrSupported: isVRSupported, activeSession: !!xrSession, unityLoaded: !!unityInstance }; };
-
+ 
         // Page engagement
         let pageStartTime = Date.now(), engagementTracked = false;
         setTimeout(() => { if (!engagementTracked) { gtag('event', 'page_engagement_30s', { creator_name: environment.creatorUsername || 'platform', project_name: environment.projectName || 'main', engagement_time_msec: 30000 }); engagementTracked = true; } }, 30000);
@@ -605,14 +795,14 @@
             else { gtag('event', 'page_visible', { creator_name: environment.creatorUsername || 'platform', project_name: environment.projectName || 'main' }); pageStartTime = Date.now(); }
         });
         window.addEventListener('beforeunload', function() { gtag('event', 'page_exit', { total_time_on_page: Date.now() - pageStartTime, creator_name: environment.creatorUsername || 'platform', project_name: environment.projectName || 'main' }); });
-
+ 
         gtag('event', 'template_initialized', {
             template_version: 'platform_domain_paypal_webxr_v2025',
             creator_name: environment.creatorUsername || 'platform',
             project_name: environment.projectName || 'main',
             features: ['platform_domain_paypal', 'dual_transactions', 'pwa', 'ga4_tracking', 'load_balancer_injection', 'webxr_vr']
         });
-
+ 
         loadUnity();
     </script>
 </body>
