@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <title>Spacedolphin's Unreality3d Playground</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, shrink-to-fit=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, shrink-to-fit=no, viewport-fit=cover">
     <link rel="icon" type="image/x-icon" href="https://unreality3d.com/favicon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="https://unreality3d.com/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="https://unreality3d.com/favicon-16x16.png">
@@ -155,7 +155,7 @@
  
         /* ── Unity Canvas ────────────────────────────── */
         #unity-container { position: fixed; inset: 0; background: #0f172a; }
-        #unity-canvas { display: block; width: 100vw; height: 100vh; background: #0f172a; cursor: default; }
+        #unity-canvas { display: block; width: 100%; height: 100%; background: #0f172a; cursor: default; }
         #unity-warning {
             position: fixed; top: 0; left: 50%; transform: translateX(-50%);
             z-index: 8000; max-width: 600px; width: 90%;
@@ -163,7 +163,10 @@
  
         /* ── VR Button ───────────────────────────────── */
         #webxr-button-container {
-            position: fixed; bottom: 20px; right: 20px; z-index: 2000; display: none;
+            position: fixed;
+            /* keep clear of the notch / home indicator in full-bleed mode */
+            bottom: max(20px, env(safe-area-inset-bottom)); right: max(20px, env(safe-area-inset-right));
+            z-index: 2000; display: none;
             opacity: 1; transition: opacity 0.6s ease;
         }
         #webxr-button-container.vr-faded { opacity: 0.15; }
@@ -196,7 +199,10 @@
  
         /* PWA: Full Screen button (mobile only) ─────── */
         #fullscreen-install-button {
-            position: fixed; bottom: 20px; left: 20px; z-index: 2000;
+            position: fixed;
+            /* keep clear of the notch / home indicator in full-bleed mode */
+            bottom: max(20px, env(safe-area-inset-bottom)); left: max(20px, env(safe-area-inset-left));
+            z-index: 2000;
             display: none;                 /* shown after load on mobile via JS */
             width: 44px; height: 44px;
             align-items: center; justify-content: center;
@@ -358,15 +364,14 @@
         environment.creatorPayPalEmail = 'laurie@unreality3d.com';
         let unityInstance = null;
  
-        // ++ FIX: Suppress the benign cross-origin "Script error." dialog.
+        // Suppress the benign cross-origin "Script error." dialog.
         // Browsers mask any error thrown by a cross-origin script (analytics, the
         // injected payment SDK, the WebXR runtime, etc.) as the generic string
         // "Script error." with no source and line 0. Unity's loader reacts to ANY
-        // uncaught error by popping its own alert ("An error occurred running the
-        // Unity content on this page... The error was: Script error."), which looks
-        // fatal even though the experience keeps running. We swallow ONLY that exact
-        // masked signature; every real, same-origin error carries a real message and
-        // line and still reaches Unity's alert untouched.
+        // uncaught error by popping its own alert, which looks fatal even though the
+        // experience keeps running. We swallow ONLY that exact masked signature;
+        // every real, same-origin error carries a real message and line and still
+        // reaches Unity's alert untouched.
         function _isMaskedCrossOriginError(message, source, lineno) {
             return message === 'Script error.' && !source && (!lineno || lineno === 0);
         }
@@ -428,6 +433,19 @@
         // ── Mobile / iOS Detection ────────────────────
         var _isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
         var _isIOSDevice = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+ 
+        // Render density. Phones report 2x–3x; cap mobile at 1.5x so the GPU isn't
+        // rendering a heavy 3D scene at full 3x (perf + crash risk) while still
+        // being far sharper than the old hard 1x. Desktop uses its real density.
+        var _renderDpr = _isMobileDevice ? Math.min(window.devicePixelRatio || 1, 1.5) : (window.devicePixelRatio || 1);
+ 
+        // Size the draw buffer from the canvas's actual on-screen size × density.
+        function resizeCanvas() {
+            var c = document.querySelector('#unity-canvas');
+            if (!c) return;
+            c.width = Math.round(c.clientWidth * _renderDpr);
+            c.height = Math.round(c.clientHeight * _renderDpr);
+        }
  
         // ── WebXR / VR ────────────────────────────────
         let xrSession = null, isVRSupported = false;
@@ -566,20 +584,19 @@
  
             let steps;
             if (_isIOSDevice) {
-                // ++ FIX: iOS Share-sheet flow works in any browser (Safari, Chrome,
-                // etc.) because Add to Home Screen is an iOS system action. No
-                // "Safari only" claim. The "View More" hint covers browsers that bury
-                // the action below the fold.
+                // iOS Share-sheet flow works in any browser (Safari, Chrome, etc.)
+                // because Add to Home Screen is an iOS system action. No "Safari only"
+                // claim. The "View More" hint covers browsers that bury the action.
                 steps = [
-                    'Tap the Share button ' + shareIcon + ' — it’s in the toolbar, or on newer iPhones tap the ' + menuIcon + ' menu by the address bar first, then Share.',
-                    'In the list that opens, tap “Add to Home Screen”. If you don’t see it, scroll down or tap “View More”.',
-                    'Tap “Add”, then open it from the new icon to play full screen.'
+                    'Tap the Share button ' + shareIcon + ' \u2014 it\u2019s in the toolbar, or on newer iPhones tap the ' + menuIcon + ' menu by the address bar first, then Share.',
+                    'In the list that opens, tap \u201CAdd to Home Screen\u201D. If you don\u2019t see it, scroll down or tap \u201CView More\u201D.',
+                    'Tap \u201CAdd\u201D, then open it from the new icon to play full screen.'
                 ];
             } else {
                 // Android Chrome and other Chromium browsers.
                 steps = [
                     'Tap the ' + menuIcon + ' menu in the corner of the browser.',
-                    'Tap “Install app”, or “Add to Home screen” if that’s what you see.',
+                    'Tap \u201CInstall app\u201D, or \u201CAdd to Home screen\u201D if that\u2019s what you see.',
                     'Confirm, then open it from the new icon to play full screen.'
                 ];
             }
@@ -706,11 +723,11 @@
             }
  
             var buildUrl = "Build";
-            var loaderUrl = buildUrl + "/991143b1ddf595b115acf1cafaeea9dc.loader.js?v=1780262539824";
+            var loaderUrl = buildUrl + "/bfc9428a96593ce5812cf4398e5c2a34.loader.js?v=1780532011768";
             var config = {
-                dataUrl: buildUrl + "/75e305e23853aeb32ab95e246af0d9e2.data?v=1780262539824",
-                frameworkUrl: buildUrl + "/1e25922a9a32d7cdb44d1b88dc290f73.framework.js?v=1780262539824",
-                codeUrl: buildUrl + "/eb905fd0df89091c3dc064db373583a5.wasm?v=1780262539824",
+                dataUrl: buildUrl + "/546e7b459c1b2ef120546744c81887fe.data?v=1780532011768",
+                frameworkUrl: buildUrl + "/1e25922a9a32d7cdb44d1b88dc290f73.framework.js?v=1780532011768",
+                codeUrl: buildUrl + "/cb068c5a6c910ef3b216e603baf96cba.wasm?v=1780532011768",
                 streamingAssetsUrl: "StreamingAssets",
                 companyName: "spacedolphin",
                 productName: "Spacedolphin's Unreality3d Playground",
@@ -723,10 +740,11 @@
                 }
             };
  
+            // Canvas fills the viewport. 100vh/100vw (NOT 100%) — 100% breaks
+            // viewport-fit=cover on iOS standalone, leaving a bottom gap; 100vh is
+            // the value that resolves correctly in standalone PWA mode.
             canvas.style.width = "100vw"; canvas.style.height = "100vh";
-            if (_isMobileDevice) {
-                config.devicePixelRatio = 1;
-            }
+            config.devicePixelRatio = _renderDpr;   // capped-1.5x on mobile, real density on desktop
  
             var script = document.createElement("script");
             script.src = loaderUrl;
@@ -743,10 +761,10 @@
                     // handoff point.
                     window.unityInstance = instance;
  
-                    // ++ FIX: belt-and-suspenders — if Unity wired its error handler
-                    // via window.onerror rather than an event listener, wrap it so the
-                    // same masked cross-origin "Script error." is filtered. Real errors
-                    // pass straight through to Unity's handler.
+                    // Belt-and-suspenders: if Unity wired its error handler via
+                    // window.onerror rather than an event listener, wrap it so the
+                    // same masked cross-origin "Script error." is filtered. Real
+                    // errors pass straight through to Unity's handler.
                     var _unityOnError = window.onerror;
                     window.onerror = function (message, source, lineno, colno, error) {
                         if (_isMaskedCrossOriginError(message, source, lineno)) return true;
@@ -759,6 +777,7 @@
                         unityInstance.SendMessage('U3D_FirebaseIntegration', 'OnPhotonTokenReceived', window._pendingPhotonToken);
                         window._pendingPhotonRoom = null; window._pendingPhotonContent = null; window._pendingPhotonToken = null;
                     }
+                    resizeCanvas();
                     checkVRSupport();
                     showFullscreenButton();   // PWA: reveal the mobile Full Screen button after load
                     gtag('event', 'unity_load_complete', { creator_name: environment.creatorUsername || 'platform', project_name: environment.projectName || 'main', load_time_ms: Date.now() - performance.timing.navigationStart });
@@ -772,10 +791,12 @@
         }
  
         ['resize', 'orientationchange'].forEach(evt => {
-            window.addEventListener(evt, () => {
+            window.addEventListener(evt, function () {
                 if (!unityInstance) return;
-                const c = document.querySelector('#unity-canvas');
-                c.width = window.innerWidth; c.height = window.innerHeight;
+                resizeCanvas();
+                // iOS reports stale dimensions immediately after a turn;
+                // re-apply once the new orientation settles.
+                setTimeout(function () { if (unityInstance) resizeCanvas(); }, 300);
             });
         });
  
